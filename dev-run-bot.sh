@@ -3,6 +3,6 @@
 poetry build
 poetry install
 
-impressify
+impressify --output out22 inps 200
 
 
