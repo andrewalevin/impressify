@@ -47,7 +47,21 @@ impressify <path> <size> [--output <output_path>] [--quality <quality>] [--optim
 - --overwrite: Overwrite existing files (default: disabled).
 
 
-### Examples
+### Github Actions
+
+```markdown
+
+   - name: 🥦 Install impressify
+      run: pip install impressify
+      
+    - name: 🥒 Resize
+      run: |
+        impressify moscow/imgs 100
+        impressify moscow/imgs 220
+
+```
+
+## Examples
 
 #### Resize a Single Image
 
