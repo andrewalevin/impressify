@@ -12,6 +12,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9"
+pillow = "^11.0.0"
 
 [tool.poetry.scripts]
 impressify = "impressify.impressify:main"
