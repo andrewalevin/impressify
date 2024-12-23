@@ -50,18 +50,7 @@ def process_directory(path: pathlib.Path, size: int, output: pathlib.Path, quali
     """
     Process all images in a directory, resizing them and saving to the output directory.
     """
-    try:
-        images = [f for f in path.iterdir() if f.suffix in ALLOWED_EXTENSIONS]
-        if path == output:
-            images = [f for f in images if not FILENAME_PATTERN.match(f.stem)]
-        for image in images:
-            output_img = output / f"{image.stem}-{size}px{image.suffix}"
-            if output_img.exists() and not overwrite:
-                logger.info(f"🔷 Skipping existing file (overwrite disabled): {output_img}")
-                continue
-            resize_image(image, size, output_img, quality, optimize)
-    except Exception as e:
-        logger.error(f"🔴 Error processing directory '{path}': {e}")
+
 
 
 def run_impressify(path: pathlib.Path, size: int, output: pathlib.Path | None, quality: int, optimize: bool,
@@ -69,20 +58,42 @@ def run_impressify(path: pathlib.Path, size: int, output: pathlib.Path | None, q
     """
     Main function to process a file or directory for image resizing.
     """
-    output = output or path.parent
-    output.mkdir(parents=True, exist_ok=True)
 
     if path.is_file():
         if path.suffix not in ALLOWED_EXTENSIONS:
             logger.warning(f"🟡 Unsupported file type: {path.suffix}")
             return
-        output_img = output / f"{path.stem}-{size}px{path.suffix}"
+
+        output_img = None
+        if output:
+            if output.is_file():
+                output_img = output
+            else:
+                output_img = output / f"{path.stem}-{size}px{path.suffix}"
+        else:
+            output_img = path.parent / f"{path.stem}-{size}px{path.suffix}"
+        output_img.parent.mkdir(parents=True, exist_ok=True)
+
         if output_img.exists() and not overwrite:
             logger.info(f"🔷 Skipping existing file (overwrite disabled): {output_img}")
             return
         resize_image(path, size, output_img, quality, optimize)
     elif path.is_dir():
-        process_directory(path, size, output, quality, optimize, overwrite)
+        output_dir = output if output else path
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            images = [f for f in path.iterdir() if f.suffix in ALLOWED_EXTENSIONS]
+            if path == output_dir:
+                images = [f for f in images if not FILENAME_PATTERN.match(f.stem)]
+            for image in images:
+                output_img = output_dir / f"{image.stem}-{size}px{image.suffix}"
+                if output_img.exists() and not overwrite:
+                    logger.info(f"🔷 Skipping existing file (overwrite disabled): {output_img}")
+                    continue
+                resize_image(image, size, output_img, quality, optimize)
+        except Exception as e:
+            logger.error(f"🔴 Error processing directory '{path}': {e}")
     else:
         logger.error(f"🔴 Invalid path: {path}")
 
