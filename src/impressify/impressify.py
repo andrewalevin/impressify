@@ -3,9 +3,9 @@ import logging
 import pathlib
 import re
 import sys
-
 from PIL import Image
 
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -13,134 +13,115 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Constants
+ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.JPG', '.JPEG'}
+FILENAME_PATTERN = re.compile(r'.*-\d*px$')
 
-ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.JPG', '.JPEG']
 
-def resize_image(
-        path: pathlib.Path,
-        size: int,
-        output: pathlib.Path,
-        quality: int = 80,
-        optimize: bool = True) -> pathlib.Path | None:
+def resize_image(path: pathlib.Path, size: int, output: pathlib.Path, quality: int = 80,
+                 optimize: bool = True) -> pathlib.Path | None:
+    """
+    Resize an image to a specified size and save it to the output path.
 
-    output = pathlib.Path(output)
-    output.parent.mkdir(parents=True, exist_ok=True)
+    Args:
+        path (pathlib.Path): Path to the input image.
+        size (int): The maximum size (width/height) of the resized image.
+        output (pathlib.Path): Path to save the resized image.
+        quality (int): Quality of the saved image (1-100).
+        optimize (bool): Whether to optimize the image.
 
+    Returns:
+        pathlib.Path | None: Path to the resized image or None if an error occurred.
+    """
     try:
-        image = Image.open(path.as_posix())
-        image.thumbnail((size, size))
-        image.save(output.as_posix(), quality=quality, optimize=optimize)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with Image.open(path) as image:
+            image.thumbnail((size, size))
+            image.save(output, quality=quality, optimize=optimize)
+        logger.info(f"🟢 Resized and saved image: {output}")
+        return output
     except Exception as e:
-        logger.error(f'🔴 Error While Pillow Read, Convert or Save: \n\n {e}')
-
-    return output
-
-
-def run_impressify(
-        path: pathlib.Path,
-        size: int,
-        output: pathlib.Path | None = None,
-        quality: int = 80,
-        optimize: bool = True,
-        overwrite: bool = False):
+        logger.error(f"🔴 Error resizing image '{path}': {e}")
+        return None
 
 
-    if not path.is_dir():
-        if path.suffix not in ALLOWED_EXTENSIONS:
-            logger.info(f'🟡 Your path is not in ALLOWED_EXTENSIONS: {ALLOWED_EXTENSIONS}')
-            return
-
-        output_dir = pathlib.Path(output) if output else path.parent
-        try:
-            output_dir.mkdir(exist_ok=True, parents=True)
-        except Exception as e:
-            logger.error(f'🔴 Error During Mkdir: \n\n {e}')
-            return
-
-        output_img = output_dir.joinpath(f'{path.stem}-{size}px{path.suffix}')
-
-        if output_img.exists() and not overwrite:
-            logger.info(f'🔷 File Yet exists and [overwrite] is set to False. Exit: {output_img}')
-            return
-
-        output_img = resize_image(path, size, output_img, quality, optimize)
-
-        if output_img and output_img.exists():
-            logger.info(f'🟢 Successfully: {output_img}')
-
-    else:
-        output_dir = pathlib.Path(output) if output else path
-        try:
-            output_dir.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            logger.error(f'🔴 Error During Mkdir: \n\n {e}')
-            return
-
-        try:
-            images = list(filter(lambda f: f.suffix in ALLOWED_EXTENSIONS, path.iterdir()))
-        except Exception as e:
-            logger.error(f'🔴 Error During Iter: \n\n {e}')
-            return
-
-        if path == output_dir:
-            print('THE SAME DIR')
-            _FILENAME_REGEXP_PATTERN = r'.*-\d*px$'
-            images = list(filter(lambda f: not re.match(_FILENAME_REGEXP_PATTERN, f.stem), images))
-
+def process_directory(path: pathlib.Path, size: int, output: pathlib.Path, quality: int, optimize: bool,
+                      overwrite: bool):
+    """
+    Process all images in a directory, resizing them and saving to the output directory.
+    """
+    try:
+        images = [f for f in path.iterdir() if f.suffix in ALLOWED_EXTENSIONS]
+        if path == output:
+            images = [f for f in images if not FILENAME_PATTERN.match(f.stem)]
         for image in images:
-            output_img = output_dir.joinpath(f'{image.stem}-{size}px{image.suffix}')
+            output_img = output / f"{image.stem}-{size}px{image.suffix}"
             if output_img.exists() and not overwrite:
-                logger.info(f'🔷 File Yet exists and [overwrite] is set to False. Continue: {output_img}')
+                logger.info(f"🔷 Skipping existing file (overwrite disabled): {output_img}")
                 continue
+            resize_image(image, size, output_img, quality, optimize)
+    except Exception as e:
+        logger.error(f"🔴 Error processing directory '{path}': {e}")
 
-            output_img = resize_image(image, size, output_img, quality, optimize)
-            if output_img and output_img.exists():
-                logger.info(f'🟢 Successfully: {output_img}')
 
+def run_impressify(path: pathlib.Path, size: int, output: pathlib.Path | None, quality: int, optimize: bool,
+                   overwrite: bool):
+    """
+    Main function to process a file or directory for image resizing.
+    """
+    output = output or path.parent
+    output.mkdir(parents=True, exist_ok=True)
+
+    if path.is_file():
+        if path.suffix not in ALLOWED_EXTENSIONS:
+            logger.warning(f"🟡 Unsupported file type: {path.suffix}")
+            return
+        output_img = output / f"{path.stem}-{size}px{path.suffix}"
+        if output_img.exists() and not overwrite:
+            logger.info(f"🔷 Skipping existing file (overwrite disabled): {output_img}")
+            return
+        resize_image(path, size, output_img, quality, optimize)
+    elif path.is_dir():
+        process_directory(path, size, output, quality, optimize, overwrite)
+    else:
+        logger.error(f"🔴 Invalid path: {path}")
 
 
 def main():
+    """
+    Command-line entry point for the image resizing script.
+    """
+    parser = argparse.ArgumentParser(description="Resize images to a specified size.")
+    parser.add_argument("path", type=str, help="Path to an image or directory.")
+    parser.add_argument("size", type=int, help="Maximum size (width/height) of the resized image.")
+    parser.add_argument("--output", type=str, default=None, help="Output directory (optional).")
+    parser.add_argument("--quality", type=int, default=80, help="Image quality (1-100). Default is 80.")
+    parser.add_argument("--optimize", action="store_true", help="Enable optimization. Default is disabled.")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing files. Default is disabled.")
+
+    args = parser.parse_args()
+
+    path = pathlib.Path(args.path)
+    if not path.exists():
+        logger.error(f"🔴 Path does not exist: {path}")
+        sys.exit(1)
+
+    if args.size < 1:
+        logger.error("🔴 Invalid size. Size must be greater than 0.")
+        sys.exit(1)
+
+    if not (1 <= args.quality <= 100):
+        logger.error("🔴 Quality must be between 1 and 100.")
+        sys.exit(1)
+
+    output = pathlib.Path(args.output) if args.output else None
+    run_impressify(path, args.size, output, args.quality, args.optimize, args.overwrite)
+
+
+if __name__ == "__main__":
     try:
-        parser = argparse.ArgumentParser(description="⏰ Run and kill a subprocess after a specified time.")
-
-        parser.add_argument("path", type=str, help="The path to the bash script to run.")
-        parser.add_argument("size", type=int, help="An integer parameter that is required.")
-
-        parser.add_argument("--output", type=str, default=None, help="The output path (optional).")
-        parser.add_argument("--quality", type=int, default=80,
-            help="An optional integer parameter with a default value of 80.")
-        parser.add_argument("--optimize", action="store_true",
-                            help="An optional boolean flag. Default is True if provided, otherwise False.")
-        parser.add_argument("--overwrite", action="store_true", default=False,
-                            help="An optional boolean flag. Default is False if provided, otherwise True.")
-
-        args = parser.parse_args()
-
-        # Пример обработки параметров
-        print(f"Path: {args.path}")
-        path = pathlib.Path(args.path)
-        if not path.exists():
-            logger.info('🟡 Input path not exists. Exit')
-            sys.exit()
-
-        output = None
-        if args.output:
-            output = pathlib.Path(args.output)
-
-        if args.size < 1:
-            logger.info('🟡 Your size is < 1. Exit')
-            sys.exit()
-
-        if  args.quality < 1 or args.quality > 100:
-            logger.info('🟡 Your quality is not in [1, .. , 100]. Exit')
-            sys.exit()
-
-        run_impressify(path, args.size, output, args.quality, args.optimize, args.overwrite)
-
+        main()
     except KeyboardInterrupt:
         logger.warning("❗ Program interrupted by the user.")
     except Exception as e:
-        logger.error(f"❌ An unexpected error occurred in main(): {e}")
-
-if __name__ == "__main__":
-    main()
+        logger.error(f"❌ An unexpected error occurred: {e}")
