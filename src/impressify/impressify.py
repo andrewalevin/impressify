@@ -1,6 +1,7 @@
 import argparse
 import logging
 import pathlib
+import re
 import sys
 
 from PIL import Image
@@ -74,6 +75,11 @@ def run_impressify(
         except Exception as e:
             logger.error(f'🔴 Error During Iter: \n\n {e}')
             return
+
+        if path == output_dir:
+            print('THE SAME DIR')
+            _FILENAME_REGEXP_PATTERN = r'.*-\d*px$'
+            images = list(filter(lambda f: not re.match(_FILENAME_REGEXP_PATTERN, f.stem), images))
 
         for image in images:
             output_img = output_dir.joinpath(f'{image.stem}-{size}px{image.suffix}')
