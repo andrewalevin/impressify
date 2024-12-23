@@ -41,7 +41,9 @@ def run_impressify(
         size: int,
         output: pathlib.Path | None = None,
         quality: int = 80,
-        optimize: bool = True):
+        optimize: bool = True,
+        overwrite: bool = False):
+
 
     if not path.is_dir():
         if path.suffix not in ALLOWED_EXTENSIONS:
@@ -57,10 +59,14 @@ def run_impressify(
 
         output_img = output_dir.joinpath(f'{path.stem}-{size}px{path.suffix}')
 
+        if output_img.exists() and not overwrite:
+            logger.info(f'🔷 File Yet exists and [overwrite] is set to False. Exit: {output_img}')
+            return
+
         output_img = resize_image(path, size, output_img, quality, optimize)
 
         if output_img and output_img.exists():
-            logger.info(f'🟢 Succeffully: {output_img}')
+            logger.info(f'🟢 Successfully: {output_img}')
 
     else:
         output_dir = pathlib.Path(output) if output else path
@@ -83,10 +89,13 @@ def run_impressify(
 
         for image in images:
             output_img = output_dir.joinpath(f'{image.stem}-{size}px{image.suffix}')
+            if output_img.exists() and not overwrite:
+                logger.info(f'🔷 File Yet exists and [overwrite] is set to False. Continue: {output_img}')
+                continue
 
             output_img = resize_image(image, size, output_img, quality, optimize)
             if output_img and output_img.exists():
-                logger.info(f'🟢 Succeffully: {output_img}')
+                logger.info(f'🟢 Successfully: {output_img}')
 
 
 
@@ -100,10 +109,10 @@ def main():
         parser.add_argument("--output", type=str, default=None, help="The output path (optional).")
         parser.add_argument("--quality", type=int, default=80,
             help="An optional integer parameter with a default value of 80.")
-
-        # Произвольный параметр optimize с значением по умолчанию
         parser.add_argument("--optimize", action="store_true",
                             help="An optional boolean flag. Default is True if provided, otherwise False.")
+        parser.add_argument("--overwrite", action="store_true", default=False,
+                            help="An optional boolean flag. Default is False if provided, otherwise True.")
 
         args = parser.parse_args()
 
@@ -126,10 +135,7 @@ def main():
             logger.info('🟡 Your quality is not in [1, .. , 100]. Exit')
             sys.exit()
 
-        run_impressify(path, args.size, output=output, quality=args.quality, optimize=args.optimize)
-
-        logger.info(f"🚀 RUN: ")
-
+        run_impressify(path, args.size, output, args.quality, args.optimize, args.overwrite)
 
     except KeyboardInterrupt:
         logger.warning("❗ Program interrupted by the user.")
