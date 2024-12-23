@@ -1,7 +1,7 @@
 
 [tool.poetry]
 name = "impressify"
-version = "0.4"
+version = "0.5"
 description = "⏰ impressify"
 authors = ["Andrew A Levin <your.email@example.com>"]
 readme = "README.md"
