@@ -19,7 +19,7 @@ FILENAME_PATTERN = re.compile(r'.*-\d*px$')
 
 
 def resize_image(path: pathlib.Path, size: int, output: pathlib.Path, quality: int = 80,
-                 optimize: bool = True) -> pathlib.Path | None:
+                 optimize: bool = True, progressive: bool = False) -> pathlib.Path | None:
     """
     Resize an image to a specified size and save it to the output path.
 
@@ -37,7 +37,11 @@ def resize_image(path: pathlib.Path, size: int, output: pathlib.Path, quality: i
         output.parent.mkdir(parents=True, exist_ok=True)
         with Image.open(path) as image:
             image.thumbnail((size, size))
-            image.save(output, quality=quality, optimize=optimize)
+            if progressive:
+                logger.info('🚀 Progressive')
+                image.save(output, 'JPEG', quality=quality, optimize=optimize, progressive=True)
+            else:
+                image.save(output, quality=quality, optimize=optimize)
         logger.info(f"🟢 Resized and saved image: {output}")
         return output
     except Exception as e:
@@ -53,8 +57,12 @@ def process_directory(path: pathlib.Path, size: int, output: pathlib.Path, quali
 
 
 
-def run_impressify(path: pathlib.Path, size: int, output: pathlib.Path | None, quality: int, optimize: bool,
-                   overwrite: bool):
+def run_impressify(path: pathlib.Path,
+                   size: int, output: pathlib.Path | None,
+                   quality: int,
+                   optimize: bool,
+                   overwrite: bool,
+                   progressive: bool):
     """
     Main function to process a file or directory for image resizing.
     """
@@ -91,7 +99,7 @@ def run_impressify(path: pathlib.Path, size: int, output: pathlib.Path | None, q
                 if output_img.exists() and not overwrite:
                     logger.info(f"🔷 Skipping existing file (overwrite disabled): {output_img}")
                     continue
-                resize_image(image, size, output_img, quality, optimize)
+                resize_image(image, size, output_img, quality, optimize, progressive)
         except Exception as e:
             logger.error(f"🔴 Error processing directory '{path}': {e}")
     else:
@@ -109,6 +117,10 @@ def main():
     parser.add_argument("--quality", type=int, default=80, help="Image quality (1-100). Default is 80.")
     parser.add_argument("--optimize", action="store_true", help="Enable optimization. Default is disabled.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing files. Default is disabled.")
+    parser.add_argument("--progressive", action="store_true", help="Progressive Jpeg. Default is False.")
+
+
+
 
     args = parser.parse_args()
 

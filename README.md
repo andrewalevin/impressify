@@ -45,6 +45,7 @@ impressify <path> <size> [--output <output_path>] [--quality <quality>] [--optim
 - --quality: Image quality (default: 80, range: 1-100).
 - --optimize: Optimize images for reduced size (default: enabled).
 - --overwrite: Overwrite existing files (default: disabled).
+- --progressive: progressive jpeg.
 
 
 ### Github Actions
