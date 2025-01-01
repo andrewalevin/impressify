@@ -138,7 +138,7 @@ def main():
         sys.exit(1)
 
     output = pathlib.Path(args.output) if args.output else None
-    run_impressify(path, args.size, output, args.quality, args.optimize, args.overwrite)
+    run_impressify(path, args.size, output, args.quality, args.optimize, args.overwrite, args.progressive)
 
 
 if __name__ == "__main__":
